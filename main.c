@@ -59,6 +59,35 @@ int dla_top(struct dla_common_op_desc desc_cache0[DLA_OP_NUM * DLA_OP_CACHE_SIZE
 	return 0;
 }
 
+void dla_reg_write(uint32_t *addr, uint32_t reg)
+{
+#pragma HLS INTERFACE m_axi port=addr depth=32 offset = slave
+
+		*(addr) = reg;
+
+}
+uint32_t dla_reg_read(uint32_t addr)
+{
+#pragma HLS INTERFACE m_axi port=addr depth=32 offset = slave
+	uint32_t reg;
+	reg = addr;
+	return reg;
+}
+uint32_t reg_read(uint32_t addr)
+{
+#pragma HLS INTERFACE m_axi port=addr depth=32 offset = slave
+
+	return dla_reg_read(addr);
+}
+
+
+void reg_write(uint32_t *addr, uint32_t reg)
+{
+#pragma HLS INTERFACE m_axi port=addr depth=32 offset = slave
+	dla_reg_write((uint32_t *)addr, reg);
+}
+
+
 
 void dla_debug(const char *str, ...)
 {
@@ -264,7 +293,7 @@ struct dla_engine *dla_get_engine()
 	return engine;
 }
 
-// 需要dma_buf API读取数据
+// 闇�瑕乨ma_buf API璇诲彇鏁版嵁
 // dma_buf_begin_cpu_access(buf, DMA_BIDIRECTIONAL);
 // dma_buf_vmap(buf);
 
@@ -746,22 +775,5 @@ int32_t dla_lut_read(uint16_t *src,struct dla_lut_param dst[32],
 	}
 	return 0;
 }
-
-/*void dla_reg_write(void *driver_context, uint32_t addr, uint32_t reg)
-{
-#pragma HLS INTERFACE m_axi port=addr offset = slave
-//#pragma HLS INTERFACE s_axilite port=driver_context bundle=AXI_Lite_1
-#pragma HLS INTERFACE s_axilite port=reg bundle=AXI_Lite_1
-#pragma HLS INTERFACE s_axilite port=return bundle=AXI_Lite_1
-
-	struct nvdla_device *nvdla_dev = (struct nvdla_device *)driver_context;
-	int *dst;
-	if (!nvdla_dev)
-		return;
-	dst = nvdla_dev->base + addr;
-	memcpy((int *)dst,(int *)reg,32);
-
-}
-*/
 
 
