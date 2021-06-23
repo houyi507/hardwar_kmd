@@ -135,7 +135,7 @@ int32_t dla_execute_task(void *engine_context, void *task_data, void *config_dat
  * @return			Register value
  *
  */
-uint32_t dla_reg_read(void *driver_context, uint32_t addr);
+uint32_t dla_reg_read(uint32_t addr);
 
 /**
  * @brief			Register write
@@ -150,7 +150,7 @@ uint32_t dla_reg_read(void *driver_context, uint32_t addr);
  * @param reg			Value to write
  *
  */
-void dla_reg_write(void *driver_context, uint32_t addr, uint32_t reg);
+void dla_reg_write(uint32_t *addr, uint32_t reg);
 
 /**
  * @brief			Read data from DMA mapped memory in local buffer
