@@ -135,7 +135,7 @@ int32_t dla_execute_task(void *engine_context, void *task_data, void *config_dat
  * @return			Register value
  *
  */
-uint32_t dla_reg_read(uint32_t addr);
+uint32_t dla_reg_read(const uint32_t *addr);
 
 /**
  * @brief			Register write
