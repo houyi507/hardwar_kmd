@@ -299,39 +299,57 @@ struct dla_engine *dla_get_engine()
 // dma_buf_begin_cpu_access(buf, DMA_BIDIRECTIONAL);
 // dma_buf_vmap(buf);
 
-int32_t dla_dep_graph_read(uint16_t *src,struct dla_common_op_desc dst[32],uint32_t size,uint64_t offset)
+int32_t dla_dep_graph_read(uint64_t *src,struct dla_common_op_desc *dst,uint64_t offset)
 {
-#pragma HLS INTERFACE m_axi port=src depth=32 offset = slave
-
+#pragma HLS INTERFACE m_axi depth=64 port=src offset = slave
 
 	int i=0;
-	struct dla_common_op_desc buf[32];
+	uint64_t buf[32];
 
-	memcpy(buf,src,size * sizeof(struct dla_common_op_desc));
+	memcpy(buf,src,sizeof(struct dla_common_op_desc));
 
-	for (i = 0; i < size; i ++)
-		{
-			dst[i] = buf[i];
-		  /*dst[i].index = buf[i].index;
-			dst[i].roi_index = buf[i].roi_index;
-			dst[i].op_type =  buf[i].op_type;
-			dst[i].dependency_count = buf[i].dependency_count;
-			dst[i].reserved0[0] = buf[i].reserved0[0];
-			dst[i].reserved0[1] = buf[i].reserved0[1];
-			dst[i].reserved0[2] = buf[i].reserved0[2];
-
-			for (j = 0; j < 6; j ++)
-					{
-						dst[i].consumers[j].index = buf[i].consumers[j].index;
-						dst[i].consumers[j].event = buf[i].consumers[j].event;
-						dst[i].consumers[j].res = buf[i].consumers[j].res;
-				   }
-			*/
-		}
-	return 0;
-
+				dst->index = *(buf) >> 48;
+				dst->roi_index = *(buf) >> 40;
+				dst->op_type =  *(buf) >> 32;
+				dst->dependency_count = *(buf) >> 24;
+				dst->reserved0[0] = *(buf) >> 16;
+				dst->reserved0[1] = *(buf) >> 8;
+				dst->reserved0[2] = *(buf);
+				for (i = 0; i < 6; i ++)
+				{
+					dst->consumers[i].index = *(buf + (i / 2 + 1)) >> (32 * ((i + 1) % 2) + 16);
+					dst->consumers[i].event = *(buf + (i / 2 + 1)) >> (32 * ((i + 1) % 2) + 8);
+					dst->consumers[i].res = *(buf + (i / 2 + 1)) >> (32 * ((i + 1) % 2) + 0);
+			    }
+		return 0;
 }
+int32_t dla_dep_graph_write(uint64_t *dst,struct dla_common_op_desc *src,uint64_t offset)
+{
+#pragma HLS INTERFACE m_axi depth=64 port=dst offset = slave
 
+	int i=0;
+	uint64_t buf[32];
+
+	*(buf) = ((uint64_t)src->index << 48) |
+			 ((uint64_t)src->roi_index << 40) |
+			 ((uint64_t)src->op_type << 32) |
+			 ((uint64_t)src->dependency_count << 24) |
+			 ((uint64_t)src->reserved0[0] << 16) |
+			 ((uint64_t)src->reserved0[1] << 8) |
+			 ((uint64_t)src->reserved0[2]);
+
+	for (i = 0; i < 6; i ++)
+	{
+		*(buf + (i / 2 + 1)) = ((uint64_t)src->consumers[i].index << (32 * ((i + 1) % 2) + 16)) |
+							   ((uint64_t)src->consumers[i].event << (32 * ((i + 1) % 2) + 8)) |
+							   ((uint64_t)src->consumers[i].res << (32 * ((i + 1) % 2) + 0)) ;
+
+	}
+
+	memcpy(dst,buf,sizeof(struct dla_common_op_desc));
+
+		return 0;
+}
 
 int32_t dla_op_config_read(uint16_t *src,union dla_operation_container dst[32],
 		uint32_t size,uint64_t offset)
@@ -382,22 +400,6 @@ int32_t dla_lut_read(uint16_t *src,struct dla_lut_param dst[32],
 		dst[i] = buf[i];
 	}
 	return 0;
-}
-int32_t dla_dep_graph_write(uint16_t *dst,struct dla_common_op_desc src[32],uint32_t size,uint64_t offset)
-{
-#pragma HLS INTERFACE m_axi port=dst depth=32 offset = slave
-
-	int i=0;
-	struct dla_common_op_desc buf[32];
-
-	for (i = 0; i < size; i ++)
-		{
-			buf[i] = src[i];
-		}
-	memcpy(dst,buf,size * sizeof(struct dla_common_op_desc));
-
-	return 0;
-
 }
 
 int32_t dla_op_config_write(uint16_t *dst,union dla_operation_container src[32],uint32_t size,uint64_t offset)
