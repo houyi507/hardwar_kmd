@@ -299,56 +299,64 @@ struct dla_engine *dla_get_engine()
 // dma_buf_begin_cpu_access(buf, DMA_BIDIRECTIONAL);
 // dma_buf_vmap(buf);
 
-int32_t dla_dep_graph_read(uint64_t *src,struct dla_common_op_desc *dst,uint64_t offset)
+int32_t dla_dep_graph_read(axi_bus_t src,struct dla_common_op_desc *dst,uint64_t offset)
 {
 #pragma HLS INTERFACE m_axi depth=64 port=src offset = slave
 
 	int i=0;
 	uint64_t buf[32];
 
-	memcpy(buf,src,sizeof(struct dla_common_op_desc));
+	memcpy(buf,src + (offset * sizeof(struct dla_common_op_desc)) / 8,sizeof(struct dla_common_op_desc));
 
-				dst->index = *(buf) >> 48;
-				dst->roi_index = *(buf) >> 40;
-				dst->op_type =  *(buf) >> 32;
-				dst->dependency_count = *(buf) >> 24;
-				dst->reserved0[0] = *(buf) >> 16;
-				dst->reserved0[1] = *(buf) >> 8;
-				dst->reserved0[2] = *(buf);
+				dst->index = *(buf);
+				dst->roi_index = *(buf) >> 16;
+				dst->op_type =  *(buf) >> 24;
+				dst->dependency_count = *(buf) >> 32;
+				dst->reserved0[0] = *(buf) >> 40;
+				dst->reserved0[1] = *(buf) >> 48;
+				dst->reserved0[2] = *(buf) >> 56;
 				for (i = 0; i < 6; i ++)
 				{
-					dst->consumers[i].index = *(buf + (i / 2 + 1)) >> (32 * ((i + 1) % 2) + 16);
-					dst->consumers[i].event = *(buf + (i / 2 + 1)) >> (32 * ((i + 1) % 2) + 8);
-					dst->consumers[i].res = *(buf + (i / 2 + 1)) >> (32 * ((i + 1) % 2) + 0);
+					dst->consumers[i].index = *(buf + (i / 2 + 1)) >> (32 * (i % 2) + 0);
+					dst->consumers[i].event = *(buf + (i / 2 + 1)) >> (32 * (i % 2) + 16);
+					dst->consumers[i].res = *(buf + (i / 2 + 1)) >> (32 * (i % 2) + 24);
 			    }
+				dst->fused_parent.index = *(buf + 4);
+				dst->fused_parent.event = *(buf + 4) >> 16;
+				dst->fused_parent.res = *(buf + 4) >> 24;
 		return 0;
 }
-int32_t dla_dep_graph_write(uint64_t *dst,struct dla_common_op_desc *src,uint64_t offset)
+int32_t dla_dep_graph_write(axi_bus_t dst,struct dla_common_op_desc *src,uint64_t offset)
 {
 #pragma HLS INTERFACE m_axi depth=64 port=dst offset = slave
 
 	int i=0;
-	uint64_t buf[32];
+	uint64_t buf[32] = { 0 };
 
-	*(buf) = ((uint64_t)src->index << 48) |
-			 ((uint64_t)src->roi_index << 40) |
-			 ((uint64_t)src->op_type << 32) |
-			 ((uint64_t)src->dependency_count << 24) |
-			 ((uint64_t)src->reserved0[0] << 16) |
-			 ((uint64_t)src->reserved0[1] << 8) |
-			 ((uint64_t)src->reserved0[2]);
+	*(buf) = ((uint64_t)src->index) |
+			 ((uint64_t)(src->roi_index) << 16) |
+			 ((uint64_t)(src->op_type) << 24) |
+			 ((uint64_t)(src->dependency_count) << 32) |
+			 ((uint64_t)(src->reserved0[0]) << 40) |
+			 ((uint64_t)src->reserved0[1] << 48) |
+			 ((uint64_t)src->reserved0[2] << 56);
 
 	for (i = 0; i < 6; i ++)
 	{
-		*(buf + (i / 2 + 1)) = ((uint64_t)src->consumers[i].index << (32 * ((i + 1) % 2) + 16)) |
-							   ((uint64_t)src->consumers[i].event << (32 * ((i + 1) % 2) + 8)) |
-							   ((uint64_t)src->consumers[i].res << (32 * ((i + 1) % 2) + 0)) ;
+		*(buf + (i / 2 + 1)) = *(buf + (i / 2 + 1)) |
+							   ((uint64_t)src->consumers[i].index << (32 * (i % 2) + 0)) |
+							   ((uint64_t)src->consumers[i].event << (32 * (i % 2) + 16)) |
+							   ((uint64_t)src->consumers[i].res << (32 * (i % 2) + 24)) ;
 
 	}
 
-	memcpy(dst,buf,sizeof(struct dla_common_op_desc));
+	*(buf + 4) = ((uint64_t)src->fused_parent.index) |
+			     ((uint64_t)src->fused_parent.event << 16) |
+				 ((uint64_t)src->fused_parent.res << 24);
 
-		return 0;
+	memcpy(dst + (offset * sizeof(struct dla_common_op_desc)) / 8,buf,sizeof(struct dla_common_op_desc));
+
+	return 0;
 }
 
 int32_t dla_op_config_read(uint16_t *src,union dla_operation_container dst[32],
